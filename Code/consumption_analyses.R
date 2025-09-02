@@ -1,5 +1,5 @@
 #### ANALYSES WM CONSUMPTIION ####
-setwd("~/GitHub/PPP-Wildlife-consumption")
+setwd("~/GitHub/PPP-Wildlife-Consumption-Analyses")
 d<-read.csv("Data/consumption_data.csv")
 d<-d[order(d$ID_mensuel,d$village,d$ID_menage,d$ID_jour),]
 d$month<-as.numeric((format(as.Date(d$timestamp, format="%Y-%m-%d"),"%m")))
@@ -24,7 +24,10 @@ d$WM_taxa<-ifelse(grepl("mboloko|inkuta",d$viandedebrousse),"ungulates_small",
                                                             ifelse(grepl("civette|chat|mangouste",d$viandedebrousse),"carnivores",
                                                                    ifelse(grepl("turaco|calao|oiseau|rapace",d$viandedebrousse),"birds",
                                                                           ifelse(grepl("pangolin",d$viandedebrousse),"pangolins","other"))))))))))
-       
+# Create a column for domestic meat consumed (yes/no)
+d$domestic<-ifelse(d$type_aliment=="viandedomestique",1,0)
+# Create a column for legumes consumed (yes/no)
+d$veg_proteines<-ifelse(d$type_aliment=="proteinesvegetales",1,0)
 
 #### Descriptives ####
 # Number of food items = 52,357
@@ -33,9 +36,28 @@ length(d$X)
 length(unique(d$ID_entretien))
 # Number of households = 457
 length(unique(d$unique_ID))
+# Number of hoihg-protein recalls
+sum(d$protein)
+# Number of wild meat food items and recalls
+sum(d$wildmeat)
+sum(unique(as.data.frame(cbind(d$ID_entretien,d$wildmeat)))[,2])
+table(unique(as.data.frame(cbind(d$ID_entretien,d$wildmeat,d$month))))
+# Number of fish recalls
+sum(d$fish)
+sum(unique(as.data.frame(cbind(d$ID_entretien,d$fish)))[,2])
+# Number of insects recalls
+sum(d$insect,na.rm=TRUE)
+sum(unique(as.data.frame(cbind(d$ID_entretien,d$insect)))[,2],na.rm=TRUE)
+# Number of domestic recalls
+sum(d$domestic)
+sum(unique(as.data.frame(cbind(d$ID_entretien,d$domestic)))[,2],na.rm=TRUE)
+# Number of legumes recalls
+sum(d$veg_proteines)
+sum(unique(as.data.frame(cbind(d$ID_entretien,d$veg_proteines)))[,2],na.rm=TRUE)
+
 # Quantity consumed wild meat = 5,313.425 kg
 sum(subset(d$quantite_gr,d$wildmeat==1))
-#Mean consumnption rates
+#### Consumption rates
 # Proportions of wild meat bought = 0.539
 proportions(table(subset(d$aquisition,d$wildmeat==1)))
 length(subset(d$aquisition,d$wildmeat==1 & d$aquisition=="achat")) / length(subset(d$aquisition,d$wildmeat==1))
@@ -45,21 +67,19 @@ length(subset(d$aquisition,d$wildmeat==1 & d$aquisition=="cadeau")) / length(sub
 length(subset(d$aquisition,d$wildmeat==1 & (d$aquisition=="procure_menage" | d$aquisition=="produit_menage" | d$aquisition=="recolte"))) / length(subset(d$aquisition,d$wildmeat==1))
 # Proportion of wild meat other = 0.043
 length(subset(d$aquisition,d$wildmeat==1 & (d$aquisition=="autre" | d$aquisition=="dette" | d$aquisition=="ceremonie" | d$aquisition=="troc"))) / length(subset(d$aquisition,d$wildmeat==1))
-
-#Proportion of fresh meat = 0.849
+# Proportion of fresh meat = 0.849
 length(subset(d$condition,d$wildmeat==1 & d$condition=="frais")) / length(subset(d$condition,d$wildmeat==1))
-#Proportion of smoked meat = 0.119
+# Proportion of smoked meat = 0.119
 length(subset(d$condition,d$wildmeat==1 & d$condition=="fum")) / length(subset(d$condition,d$wildmeat==1))
-#Proportion of other meat condition = 0.03
+# Proportion of other meat condition = 0.03
 length(subset(d$condition,d$wildmeat==1 & d$condition=="autre")) / length(subset(d$condition,d$wildmeat==1))
-write.csv(table(subset(d$condition,d$wildmeat==1)),"t1.csv")
 write.csv(proportions(table(subset(d$condition,d$wildmeat==1))),"t1.csv")
-#Price per kg - hihg protein food
+# Price per kg - hihg protein food
 d$prix_kg<-d$prix_FC / (d$quantite_gr/1000)
-#Wildmeat
+# Wildmeat
 mean(subset(d$prix_kg,d$wildmeat==1),na.rm=TRUE)
 sd(subset(d$prix_kg,d$wildmeat==1),na.rm=TRUE)
-#Fish
+# Fish
 mean(subset(d$prix_kg,d$fish==1),na.rm=TRUE)
 sd(subset(d$prix_kg,d$fish==1),na.rm=TRUE)
 # Insects
@@ -71,12 +91,13 @@ sd(subset(d$prix_kg,d$type_aliment=="viandedomestique"),na.rm=TRUE)
 # Vegetal
 mean(subset(d$prix_kg,d$type_aliment=="proteinesvegetales"),na.rm=TRUE)
 sd(subset(d$prix_kg,d$type_aliment=="proteinesvegetales"),na.rm=TRUE)
-
+# All
+mean(subset(d$prix_kg,d$protein==1),na.rm=T)
+sd(subset(d$prix_kg,d$protein==1),na.rm=T)
 # Domestic vs wild meat & fish
 shapiro.test(log(subset(d$prix_kg,d$type_aliment=="viandedomestique" & d$prix_kg>0)))
 shapiro.test(log(subset(d$prix_kg,d$type_aliment=="viandebrousse" & d$prix_kg>0)))
 shapiro.test(log(subset(d$prix_kg,d$type_aliment=="poisson" & d$prix_kg>0)))
-
 
 wilcox.test(subset(d$prix_kg,d$type_aliment=="viandedomestique"),
 subset(d$prix_kg,d$type_aliment=="viandebrousse"),alternative="greater", na.omit=TRUE)
@@ -105,9 +126,7 @@ legend(x=1,y=7.8,legend=levels(as.factor(as.data.frame(consumed_taxa_village)$Va
 
 # Most consumed taxa by month
 consumed_taxa_month<-proportions(table(wm_subset$WM_taxa,wm_subset$month),margin=2)
-
 par(mar=c(4,4,1,9),cex=1,xpd=TRUE)
-
 barplot(consumed_taxa_month,col=palette,horiz=TRUE,las=1,
         names.arg = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"),ylab="Month",xlab="Proportion")
 legend(x=1,y=15,legend=levels(as.factor(as.data.frame(consumed_taxa_village)$Var1[1:9])),fill=palette,bty="n",cex=0.9,title = "Taxon")
@@ -124,16 +143,15 @@ consumed_sp_avg_weight<-c(2.56,4.35,1,2,17.5,3.73,15.06,47.95,15,15.85,6.17,9,3.
 consumed_sp_kg[,3]<-ceiling(consumed_sp_kg[,2]/consumed_sp_avg_weight)
 consumed_sp_kg[,3]<-ifelse(consumed_sp_kg[,3]<1,1,consumed_sp_kg[,3])
 consumed_sp_kg[,4]<-aggregate(subset(d$wildmeat,d$wildmeat==1),by=list(subset(d$viandedebrousse,d$wildmeat==1)),sum)[,2]
-
 names(consumed_sp_kg)<-c("species","kg","individuals")
 consumed_sp_kg
 write.csv(consumed_sp_kg,"consumed_species_OK.csv")#### Calculations - these calculations are done at the household level
+
 #### Frequency ####
 # Proportion of meals with proteins = 0.342
 sum(d$protein) / length(d$protein)
 # proportion of recalls with wild meat
 sum(subset(d$protein,d$type_aliment=="viandebrousse")) / length(unique(d$ID_entretien))
-
 # Proportion of meals with proteins with wild meat as protein = 0.409
 sum(subset(d$protein,d$type_aliment=="viandebrousse"))/sum(d$protein)
 # Proportion of meals with proteins with fish as protein = 0.400
@@ -150,22 +168,13 @@ sum(subset(d$protein,d$type_aliment=="proteinesvegetales"))/sum(d$protein)
 d_freq<-as.data.frame(aggregate(d$wildmeat,by=list(d$ID_entretien),sum))
 names(d_freq)<-c("ID_meal","wildmeat")
 d_freq$wildmeat<-ifelse(d_freq$wildmeat>0,1,0)
-#overall frequency of meals with wild meat = 0.323
+# Overall frequency of meals with wild meat = 0.323
 mean(d_freq$wildmeat)
-# Village frequency - we code village as integers
-d$village<-ifelse(d$village=="lompole",1,ifelse(d$village=="bekombo",2,ifelse(d$village=="mbungusani",3,
-                        ifelse(d$village=="mbongo",4,ifelse(d$village=="ipope",5,6)))))
-d_freq_v<-as.data.frame(aggregate(d$village,by=list(d$ID_entretien),mean))
-d_freq<-as.data.frame(cbind(d_freq[,1],d_freq_v[,2],d_freq[,2]))
-names(d_freq)<-c("ID_meal","village","wildmeat")
-d_freq_village<-aggregate(d_freq$wildmeat,by=list(d_freq$village),mean)
-names(d_freq_village)<-c("village","frequency")
-par(mar=c(4,4,2,1),cex=0.9)
-barplot(d_freq_village$frequency,names.arg = c("Lom","Bek","Mbu","Mbo","Ipo","Nga"),las=1,ylab="Frequency of consumtpion",xlab="Village",cex.lab=1.3,col="indianred",border=NA)
-#monthly frequency
+# monthly frequency
 d_freq_m<-as.data.frame(aggregate(d$month,by=list(d$ID_entretien),mean))
 d_freq_m<-as.data.frame(aggregate(d$month,by=list(d$ID_entretien),mean))
-d_freq<-as.data.frame(cbind(d_freq[,1],d_freq_m[,2],d_freq[,3]))
+names(d_freq_m)<-c("ID","month")
+d_freq<-as.data.frame(cbind(d_freq[,1],d_freq_m[,2],d_freq[,2]))
 names(d_freq)<-c("ID_meal","month","wildmeat")
 d_freq_monthly<-aggregate(d_freq$wildmeat,by=list(d_freq$month),mean)
 d_freq_monthly[,3]<-aggregate(d_freq$wildmeat,by=list(d_freq$month),sd)[,2]
@@ -174,11 +183,14 @@ names(d_freq_monthly)<-c("month","frequency","sd")
 par(mar=c(4,4,2,1),cex=0.9)
 barplot(d_freq_monthly$frequency,names.arg = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"),las=2,ylab="Frequency of consumption",col="indianred",border=NA)
 
-d_freq_h<-subset(d_freq,d_freq$month==1|d_freq$month==2|d_freq$month==3|d_freq$month==10|d_freq$month==11|d_freq$month==12)
-d_freq_l<-subset(d_freq,d_freq$month==6|d_freq$month==7|d_freq$month==8|d_freq$month==9)
-wilcox.test(d_freq_h[,2],d_freq_l[,2])
+d_freq_h<-subset(d_freq,d_freq$month==1|d_freq$month==2|d_freq$month==3|d_freq$month==4|d_freq$month==9|d_freq$month==10|d_freq$month==11|d_freq$month==12)
+d_freq_d<-subset(d_freq,d_freq$month==5|d_freq$month==6|d_freq$month==7|d_freq$month==8)
+#binomial test to test if frequency of consumption in the dry season is less than in the rest of the year
+binom.test(sum(d_freq_d$wildmeat),length(d_freq_d$wildmeat),mean(d_freq_h$wildmeat),alternative="less")
+
+
 # We also look at how frequency of other proteins (fish, PFNL) change across the year
-#recode
+# Recode as 1-0
 d$nlfp<-ifelse(d$type_aliment=="pfnl",1,0)
 d$fish<-ifelse(d$type_aliment=="poisson",1,0)
 d_freq_pfnl<-as.data.frame(aggregate(d$nlfp,by=list(d$ID_entretien),sum))
@@ -197,55 +209,151 @@ names(d_freq_monthly_pfnl)<-c("month","frequency","sd")
 d_freq_monthly_fish<-aggregate(d_freq_fish$fish,by=list(d_freq_fish$month),mean)
 d_freq_monthly_fish[,3]<-aggregate(d_freq_fish$fish,by=list(d_freq_fish$month),sd)[,2]
 names(d_freq_monthly_fish)<-c("month","frequency","sd")
-# plot consumption wild meat vs consumption of fish and pfnl
-par(cex=1.5)
-wm_trend<-barplot(d_freq_monthly$frequency,names.arg = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"),las=2,ylim=c(0,0.7),ylab="Frequency of consumption",col="indianred",border=NA)
-lines(x=wm_trend,y=d_freq_monthly_pfnl[,2],col="darkgreen",lwd=4)
-points(x=wm_trend,y=d_freq_monthly_pfnl[,2],col="darkgreen",pch=18)
-lines(x=wm_trend,y=d_freq_monthly_fish[,2],col="steelblue2",lwd=3)
-points(x=wm_trend,y=d_freq_monthly_fish[,2],col="steelblue2",pch=18)
-#legend(x=10,y=0.85,legend=c("Wild meat","Fish","Insects"),fill=c("indianred","steelblue1","darkgreen"),bty="n",border=NA)
+
+# test if fish consumption higher in the dry season
+d_freq_fish_h<-subset(d_freq_fish,d_freq_fish$month==1|d_freq_fish$month==2|d_freq_fish$month==3|d_freq_fish$month==4|d_freq_fish$month==9|d_freq_fish$month==10|d_freq_fish$month==11|d_freq_fish$month==12)
+d_freq_fish_d<-subset(d_freq_fish,d_freq_fish$month==5|d_freq_fish$month==6|d_freq_fish$month==7|d_freq_fish$month==8)
+#binomial test to test if frequency of consumption in the dry season is less than in the rest of the year
+binom.test(sum(d_freq_fish_d$fish),length(d_freq_fish_d$fish),mean(d_freq_fish_h$fish),alternative="greater")
+
+# test if insect consumption higher in the dry season
+d_freq_pfnl_h<-subset(d_freq_pfnl,d_freq_pfnl$month==1|d_freq_pfnl$month==2|d_freq_pfnl$month==3|d_freq_pfnl$month==4|d_freq_pfnl$month==6|d_freq_pfnl$month==7|d_freq_pfnl$month==10|d_freq_pfnl$month==11|d_freq_pfnl$month==12)
+d_freq_pfnl_d<-subset(d_freq_pfnl,d_freq_pfnl$month==8|d_freq_pfnl$month==9|d_freq_pfnl$month==10)
+#binomial test to test if frequency of consumption in the dry season is less than in the rest of the year
+binom.test(sum(d_freq_pfnl_d$pfnl),length(d_freq_pfnl_d$pfnl),mean(d_freq_pfnl_h$pfnl),alternative="greater")
+
 #### Quantity ####
 # Quantity of wild meat consumed/AME/day, per village, per month, total
 d$gr_wildmeat<-ifelse(d$type_aliment=="viandebrousse",d$quantite_gr,0)
 d$gr_fish<-ifelse(d$type_aliment=="poisson",d$quantite_gr,0)
 d$gr_insect<-ifelse(d$type_aliment=="pfnl" & d$protein==1,d$quantite_gr,0)
+d$gr_domestic<-ifelse(d$type_aliment=="viandedomestique" & d$protein==1,d$quantite_gr,0)
+d$gr_veg_prot<-ifelse(d$type_aliment=="proteinesvegetales" & d$protein==1,d$quantite_gr,0)
+d$gr_other<-ifelse(d$protein!=1,d$quantite_gr,0)
+
 d_quant<-as.data.frame(aggregate(d$gr_wildmeat,by=list(d$ID_entretien),sum,na.rm=TRUE))
+d_quant$month<-d_freq_m[,2]
 d_quant_fish<-as.data.frame(aggregate(d$gr_fish,by=list(d$ID_entretien),sum,na.rm=TRUE))
+d_quant_fish$month<-d_freq_m[,2]
 d_quant_insect<-as.data.frame(aggregate(d$gr_insect,by=list(d$ID_entretien),sum,na.rm=TRUE))
-names(d_quant)<-c("ID_meal","grams")
-names(d_quant_fish)<-c("ID_meal","grams")
-names(d_quant_insect)<-c("ID_meal","grams")
+d_quant_insect$month<-d_freq_m[,2]
+d_quant_domestic<-as.data.frame(aggregate(d$gr_domestic,by=list(d$ID_entretien),sum,na.rm=TRUE))
+d_quant_domestic$month<-d_freq_m[,2]
+d_quant_veg_prot<-as.data.frame(aggregate(d$gr_veg_prot,by=list(d$ID_entretien),sum,na.rm=TRUE))
+d_quant_veg_prot$month<-d_freq_m[,2]
+d_quant_other<-as.data.frame(aggregate(d$gr_other,by=list(d$ID_entretien),sum,na.rm=TRUE))
+d_quant_other$month<-d_freq_m[,2]
+
+names(d_quant)<-c("ID_meal","grams","month")
+names(d_quant_fish)<-c("ID_meal","grams","month")
+names(d_quant_insect)<-c("ID_meal","grams","month")
+names(d_quant_domestic)<-c("ID_meal","grams","month")
+names(d_quant_veg_prot)<-c("ID_meal","grams","month")
+names(d_quant_other)<-c("ID_meal","grams","month")
+
 d_AME<-as.data.frame(aggregate(d$AME,by=list(d$ID_entretien),mean))
 d_quant$grams_AME<-d_quant$grams/d_AME[,2]
 d_quant_fish$grams_AME<-d_quant_fish$grams/d_AME[,2]
 d_quant_insect$grams_AME<-d_quant_insect$grams/d_AME[,2]
-# Overall grams of wild meat per AME per day = 50.8
+d_quant_domestic$grams_AME<-d_quant_domestic$grams/d_AME[,2]
+d_quant_veg_prot$grams_AME<-d_quant_veg_prot$grams/d_AME[,2]
+d_quant_other$grams_AME<-d_quant_other$grams/d_AME[,2]
+
+# Overall grams of wild meat per AME per day = 49.2
 mean(d_quant$grams_AME)
+sd(d_quant$grams_AME)
 mean(d_quant_fish$grams_AME)
+sd(d_quant_fish$grams_AME)
 mean(d_quant_insect$grams_AME)
+sd(d_quant_insect$grams_AME)
+mean(d_quant_domestic$grams_AME)
+mean(d_quant_veg_prot$grams_AME)
+mean(d_quant_other$grams_AME)
+
+fish_all<-subset(d_quant_fish,d_quant_fish$month==1|d_quant_fish$month==2|d_quant_fish$month==3|d_quant_fish$month==4|d_quant_fish$month==9|d_quant_fish$month==10|d_quant_fish$month==11|d_quant_fish$month==12)
+fish_dry<-subset(d_quant_fish,d_quant_fish$month==5|d_quant_fish$month==6|d_quant_fish$month==7|d_quant_fish$month==8)
+shapiro.test(fish_all$grams_AME[1:5000])
+shapiro.test(fish_dry$grams_AME[1:5000])
+mean(fish_all$grams_AME)
+sd(fish_all$grams_AME)
+length(fish_all$grams_AME)
+mean(fish_dry$grams_AME)
+sd(fish_dry$grams_AME)
+length(fish_dry$grams_AME)
+wilcox.test(fish_all$grams_AME,fish_dry$grams_AME, alternative ="less")
+
+insect_all<-subset(d_quant_insect,d_quant_insect$month==1|d_quant_insect$month==2|d_quant_insect$month==3|d_quant_insect$month==4|d_quant_insect$month==5|d_quant_insect$month==6|d_quant_insect$month==7|d_quant_insect$month==11|d_quant_insect$month==12)
+insect_dry<-subset(d_quant_insect,d_quant_insect$month==8|d_quant_insect$month==9|d_quant_insect$month==10)
+shapiro.test(insect_all$grams_AME[1:5000])
+shapiro.test(insect_dry$grams_AME[1:5000])
+mean(insect_all$grams_AME)
+sd(insect_all$grams_AME)
+length(insect_all$grams_AME)
+mean(insect_dry$grams_AME)
+sd(insect_dry$grams_AME)
+length(insect_dry$grams_AME)
+wilcox.test(insect_all$grams_AME,insect_dry$grams_AME, alternative ="less")
+
+
+#### Protein intake ####
 # Contribution to recommended daily protein intake = 18.7%
 dressed_meat<-mean(d_quant$grams_AME) * 0.7
 (dressed_meat * 0.294) / 56
 dressed_fish<-mean(d_quant_fish$grams_AME) * 0.87
 (dressed_fish * 0.178) / 56
 (mean(d_quant_insect$grams_AME) * 0.457) / 56
+(mean(d_quant_other$grams_AME) * 0.01) / 56
+
+
+d$proteines_wildmeat<-ifelse(d$type_aliment=="viandebrousse",d$quantite_proteines,0)
+d$proteines_fish<-ifelse(d$type_aliment=="poisson",d$quantite_proteines,0)
+d$proteines_insect<-ifelse(d$type_aliment=="pfnl" & d$protein==1,d$quantite_proteines,0)
+d$proteines_domestic<-ifelse(d$type_aliment=="viandedomestique",d$quantite_proteines,0)
+d$proteines_veg_prot<-ifelse(d$type_aliment=="proteinesvegetales",d$quantite_proteines,0)
+d$proteines_other<-ifelse(d$protein!=1,d$quantite_proteines,0)
+
+d_prot_wm<-as.data.frame(aggregate(d$proteines_wildmeat,by=list(d$ID_entretien),sum,na.rm=TRUE))
+d_prot_fish<-as.data.frame(aggregate(d$proteines_fish,by=list(d$ID_entretien),sum,na.rm=TRUE))
+d_prot_insect<-as.data.frame(aggregate(d$proteines_insect,by=list(d$ID_entretien),sum,na.rm=TRUE))
+d_prot_domestic<-as.data.frame(aggregate(d$proteines_domestic,by=list(d$ID_entretien),sum,na.rm=TRUE))
+d_prot_veg_prot<-as.data.frame(aggregate(d$proteines_veg_prot,by=list(d$ID_entretien),sum,na.rm=TRUE))
+d_prot_other<-as.data.frame(aggregate(d$proteines_other,by=list(d$ID_entretien),sum,na.rm=TRUE))
+
+names(d_prot_wm)<-c("ID_meal","grams")
+names(d_prot_fish)<-c("ID_meal","grams")
+names(d_prot_insect)<-c("ID_meal","grams")
+names(d_prot_domestic)<-c("ID_meal","grams")
+names(d_prot_veg_prot)<-c("ID_meal","grams")
+names(d_prot_other)<-c("ID_meal","grams")
+
+d_AME<-as.data.frame(aggregate(d$AME,by=list(d$ID_entretien),mean))
+d_prot_wm$grams_AME<-d_prot_wm$grams/d_AME[,2]
+d_prot_fish$grams_AME<-d_prot_fish$grams/d_AME[,2]
+d_prot_insect$grams_AME<-d_prot_insect$grams/d_AME[,2]
+d_prot_domestic$grams_AME<-d_prot_domestic$grams/d_AME[,2]
+d_prot_veg_prot$grams_AME<-d_prot_veg_prot$grams/d_AME[,2]
+d_prot_other$grams_AME<-d_prot_other$grams/d_AME[,2]
+# Contribution of each food type to overall protein intake assuming a required intake of 56g
+mean(d_prot_wm$grams_AME) / 56
+mean(d_prot_fish$grams_AME) / 56
+mean(d_prot_insect$grams_AME) / 56
+mean(d_prot_domestic$grams_AME) / 56
+mean(d_prot_veg_prot$grams_AME) /56
+mean(d_prot_other$grams_AME) / 56
+
+
+
 # Monthly grams per AME per day
 d_quant_m<-as.data.frame(aggregate(d$month,by=list(d$ID_entretien),mean))
-d_quant<-as.data.frame(cbind(d_quant[,1],d_quant_m[,2],d_quant[,3]))
-names(d_quant)<-c("ID_meal","month","grams_AME")
 d_quant_monthly<-aggregate(d_quant$grams_AME,by=list(d_quant$month),mean)
 names(d_quant_monthly)<-c("month","grams_AME")
 # And for fish
-d_quant_fish<-as.data.frame(cbind(d_quant_fish[,1],d_quant_m[,2],d_quant_fish[,3]))
-names(d_quant_fish)<-c("ID_meal","month","grams_AME")
 d_quant_monthly_fish<-aggregate(d_quant_fish$grams_AME,by=list(d_quant_fish$month),mean)
 names(d_quant_monthly_fish)<-c("month","grams_AME")
 #And for insects
-d_quant_insect<-as.data.frame(cbind(d_quant_insect[,1],d_quant_m[,2],d_quant_insect[,3]))
-names(d_quant_insect)<-c("ID_meal","month","grams_AME")
 d_quant_monthly_insect<-aggregate(d_quant_insect$grams_AME,by=list(d_quant_insect$month),mean)
 names(d_quant_monthly_insect)<-c("month","grams_AME")
+
 #Then plot
 par(mar=c(4,4,2,1),cex=1.5,xpd=TRUE)
 q_wm_trend<-barplot(d_quant_monthly$grams_AME,col="indianred4",border=NA,
@@ -258,59 +366,50 @@ points(x=q_wm_trend,y=d_quant_monthly_insect$grams_AME,col="olivedrab",pch=18)
 # Proportion of daily protein intake recommended provided by wild meat
 q_wm_intake<-barplot(((d_quant_monthly$grams_AME * 0.7) * 0.294) / 56,col="indianred",names.arg = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"),las=2,ylim=c(0,0.4),ylab="gr/AME/day",border=NA)
 
-# Village grams per AME per day
-d_quant_v<-as.data.frame(aggregate(d$village,by=list(d$ID_entretien),mean))
-d_quant<-as.data.frame(cbind(d_quant[,1],d_quant_v[,2],d_quant[,3]))
-names(d_quant)<-c("ID_meal","village","grams_AME")
-d_quant_village<-aggregate(d_quant$grams_AME,by=list(d_quant$village),mean)
-names(d_quant_village)<-c("village","grams_AME")
-# And fish
-d_quant_f<-as.data.frame(cbind(d_quant_fish[,1],d_quant_v[,2],d_quant_fish[,3]))
-names(d_quant_f)<-c("ID_meal","village","grams_AME")
-d_quant_village_f<-aggregate(d_quant_f$grams_AME,by=list(d_quant_f$village),mean)
-names(d_quant_village_f)<-c("village","grams_AME_f")
-v_wm_trend<-barplot(d_quant_village$grams_AME,names.arg = c("Lom","Bek","Mbu","Mbo","Ipo","Nga"),las=1,ylim=c(0,100),ylab="gr/AME/day",xlab="Village",cex.lab=1.3,col="indianred",border=NA)
-lines(x=v_wm_trend,y=d_quant_village_f$grams_AME_f,las=1,ylim=c(0,100),ylab="gr/AME/day",xlab="Village",cex.lab=1.3,col="steelblue1",lwd=4)
-
 # Finally let's look at protein intake per month to see when people is eating less than recommended
 d_prot<-as.data.frame(aggregate(d$quantite_proteines,by=list(d$ID_entretien),sum,na.rm=TRUE))
 names(d_prot)<-c("ID_meal","grams")
 d_AME<-as.data.frame(aggregate(d$AME,by=list(d$ID_entretien),mean))
 d_quant$proteins_AME<-d_prot$grams/d_AME[,2]
-# let's check quantity of protein per AME per day = 24.7 vs. 56 recommended!
-mean(d_quant$proteins_AME)
+# let's check quantity of protein per AME per day = 42.1 vs. 56 recommended!
+mean(d_quant$proteins_AME) / 56
 # So let's look when we do have a problem - Always! Except for August
 d_prot<-as.data.frame(cbind(d_quant[,1],d_quant_m[,2],d_quant[,4]))
 names(d_prot)<-c("ID_meal","month","gr_proteins_AME")
 d_prot_monthly<-aggregate(d_prot$gr_proteins_AME,by=list(d_prot$month),mean)
 names(d_prot_monthly)<-c("month","grams_AME")
-q_prot_trend<-barplot(d_prot_monthly$grams_AME/56,col="lightgreen",names.arg = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"),las=2,ylim=c(0,1),ylab="Proportion fulfilled protein intake",border=NA)
+q_prot_trend<-barplot(d_prot_monthly$grams_AME/56,col="lightgreen",names.arg = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"),las=2,ylim=c(0,1.4),ylab="Proportion fulfilled protein intake",border=NA)
+abline(h=56,lwd=2)
+abline(h=46,lwd=2,col="grey")
 
-#We need to look at what's important each month - we need 4 columns, wild meat, fish, pfnl, other proteins 
+#We need to look at what's important each month - we need 5 columns, wild meat, fish, pfnl, other proteins 
 d$quantite_proteines_wm_70<-ifelse(d$type_aliment=="viandebrousse",d$quantite_proteines,0) #here we assume that 70% of undressed meat is consumed - biblio value
 d$quantite_proteines_wm_80<-ifelse(d$type_aliment=="viandebrousse",d$quantite_proteines*0.1/0.7,0) #here we assume that 80% is consumed
 d$quantite_proteines_wm_90<-ifelse(d$type_aliment=="viandebrousse",d$quantite_proteines*0.1/0.7,0) #here we assume that 90% is consumed
 d$quantite_proteines_f<-ifelse(d$type_aliment=="poisson",d$quantite_proteines,0)
-d$quantite_proteines_pfnl<-ifelse(d$type_aliment=="pfnl",d$quantite_proteines,0)
 d$quantite_proteines_dom<-ifelse(d$type_aliment=="viandedomestique",d$quantite_proteines,0)
+d$quantite_proteines_pfnl<-ifelse(d$type_aliment=="pfnl" & d$protein==1,d$quantite_proteines,0)
 d$quantite_proteines_veg<-ifelse(d$type_aliment=="proteinesvegetales",d$quantite_proteines,0)
+d$quantite_proteines_veggies<-ifelse(d$protein!=1,d$quantite_proteines,0)
 #Aggregate by recall
-d_q_prot<-as.data.frame(cbind(d$ID_entretien,d$quantite_proteines_wm_70,d$quantite_proteines_wm_80,d$quantite_proteines_wm_90,d$quantite_proteines_f,d$quantite_proteines_pfnl,d$quantite_proteines_dom,d$quantite_proteines_veg))
+d_q_prot<-as.data.frame(cbind(d$ID_entretien,d$quantite_proteines_wm_70,d$quantite_proteines_wm_80,d$quantite_proteines_wm_90,d$quantite_proteines_f,d$quantite_proteines_pfnl,d$quantite_proteines_dom,d$quantite_proteines_veg,d$quantite_proteines_veggies))
 d_q_prot<-as.data.frame(aggregate(d_q_prot,by=list(d$ID_entretien),sum,na.rm=TRUE))
-d_q_prot<-d_q_prot[,3:9]/d_AME[,2]
+d_q_prot<-d_q_prot[,3:10]/d_AME[,2]
 #Then by month
 d_q_prot<-as.data.frame(cbind(d_q_prot,d_quant_m[,2]))
-names(d_q_prot)<-c("gr_wm_70","gr_wm_80","gr_wm_90","gr_f","gr_pfnl","gr_dom","gr_veg","month")
+names(d_q_prot)<-c("gr_wm_70","gr_wm_80","gr_wm_90","gr_f","gr_pfnl","gr_dom","gr_veg","gr_other","month")
 d_q_long<-append(d_q_prot[,3],d_q_prot[,2])
 d_q_long<-append(d_q_long,d_q_prot[,1])
 d_q_long<-append(d_q_long,d_q_prot[,4])
 d_q_long<-append(d_q_long,d_q_prot[,5])
 d_q_long<-append(d_q_long,d_q_prot[,6])
 d_q_long<-append(d_q_long,d_q_prot[,7])
-d_q_long<-as.data.frame(cbind(d_q_long,rep(d_q_prot[,8],7)))
+d_q_long<-append(d_q_long,d_q_prot[,8])
+d_q_long<-as.data.frame(cbind(d_q_long,rep(d_q_prot[,9],8)))
 names(d_q_long)<-c("grams","month")
 l<-length(d_q_prot[,1])
-d_q_sub<-rep("7",l)
+d_q_sub<-rep("8",l)
+d_q_sub<-append(d_q_sub,rep("7",l))
 d_q_sub<-append(d_q_sub,rep("6",l))
 d_q_sub<-append(d_q_sub,rep("5",l))
 d_q_sub<-append(d_q_sub,rep("4",l))
@@ -319,19 +418,6 @@ d_q_sub<-append(d_q_sub,rep("2",l))
 d_q_sub<-append(d_q_sub,rep("1",l))
 d_q_long<-as.data.frame(cbind(d_q_sub,d_q_long))
 names(d_q_long)<-c("food","grams","month")
-
-d_q_plot<-aggregate(d_q_long$grams, by=list(d_q_long$food,d_q_long$month),mean)
-names(d_q_plot)<-c("food","month","grams")
-tr_red80<-rgb(0.80,0.36,0.36,alpha=0.3)
-tr_red90<-rgb(0.80,0.36,0.36,alpha=0.1)
-par(cex=1.5,xpd=TRUE)
-q_prot_trend<-barplot(grams/56 ~ food + month, data=d_q_plot,las=2,ylab="Proportion fulfilled protein intake",
-                      col=c("darkgreen","orange","lightgreen","lightblue3","indianred",tr_red80,tr_red90),
-                      border=NA,xlab="Month",
-                      names.arg = c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"),ylim=c(0,1.5))
-segments(x0=0.2,x1=14.5,y0=1,y1=1,col=rgb(0,0,0,alpha=0.3),lwd=2)
-legend(x=9.5,y=1.88,legend=c("Vegetables","Domestic meat","Insects","Fish","Wild meat"),
-       fill=c("darkgreen","orange","lightgreen","lightblue3","indianred"),bty="n",cex=0.8,title = "Protein",title.font=2,title.cex=1.1,border=NA)
 
 #### Models ####
 # Is there a significant correlation between consumption of wild meat and fish/pfnl?
@@ -371,10 +457,10 @@ glm_data$month <- relevel(glm_data$month, ref = "5")
 glm_data$village<-as.factor(glm_data$village)
 glm_data$breastfeeding<-as.factor(glm_data$breastfeeding)
 glm_data$collectors<-as.factor(ifelse(as.numeric(glm_data$village)<4,1,2))
-
+glm_data$hh_ID<-as.factor(glm_data$hh_ID)
 # GLMM binomial model for binary data
-m2<-glmer(data=glm_data, wildmeat ~ scale(income) + scale(education) + scale(sex_ratio) + scale(adult_ratio) + breastfeeding + scale(n_hunters) + scale(AME) + month + collectors +  (1|hh_ID),family=binomial,control = glmerControl(optimizer = "bobyqa"))
-m2_2<-glmer(data=glm_data, wildmeat ~ scale(income) * scale(education) + scale(sex_ratio) + scale(adult_ratio) + breastfeeding + scale(n_hunters) + scale(AME) + month + (1|village) + (1|hh_ID),family=binomial,control = glmerControl(optimizer = "bobyqa"))
+m2<-glmer(data=glm_data, wildmeat ~ scale(income) + scale(education) + scale(sex_ratio) + scale(adult_ratio) + breastfeeding + scale(n_hunters) + scale(AME) + month + village +  (1|hh_ID),family=binomial,control = glmerControl(optimizer = "bobyqa"))
+m2_2<-glmer(data=glm_data, wildmeat ~ scale(income) * scale(education) + scale(sex_ratio) + scale(adult_ratio) + breastfeeding + scale(n_hunters) + scale(AME) + month + village + (1|hh_ID),family=binomial,control = glmerControl(optimizer = "bobyqa"))
 m2_3<-glmer(data=glm_data, wildmeat ~ scale(income) + scale(education) + scale(sex_ratio) + scale(adult_ratio) + breastfeeding + scale(n_hunters) + scale(AME) + month + collectors + (1|village) + (1|hh_ID),family=binomial,control = glmerControl(optimizer = "bobyqa"))
 summary(m2)
 summary(m2_2)
@@ -431,10 +517,10 @@ glm2_data$month<-as.factor(glm2_data$month)
 glm2_data$month <- relevel(glm2_data$month, ref = "2")
 glm2_data$village<-as.factor(glm2_data$village)
 glm2_data$breastfeeding<-as.factor(glm2_data$breastfeeding)
+glm2_data$collectors<-as.factor(ifelse(as.numeric(glm2_data$village)<4,1,2))
 rm(temp)
 m3<-glmer(data=glm2_data, gr_wildmeat ~ scale(income) + scale(education) + scale(sex_ratio) + scale(adult_ratio) + breastfeeding + scale(n_hunters) + village + month + (1|hh_ID),na.action = na.exclude,family=Gamma(link="log"),control = glmerControl(optimizer = "bobyqa"))
 #let's code a variable for cluster of villages to account for possible bias in data-collection
-glm2_data$collectors<-as.factor(ifelse(as.numeric(glm2_data$village)<4,1,2))
 
 m3_2<-glmer(data=glm2_data, gr_wildmeat ~ scale(income) + scale(education) + scale(sex_ratio) + scale(adult_ratio) + breastfeeding + scale(n_hunters) + month + AME + collectors + (1|village) + (1|hh_ID),na.action = na.exclude,family=Gamma(link="log"),control = glmerControl(optimizer = "bobyqa"))
 m3_3<-glmer(data=glm2_data, gr_wildmeat ~ scale(income) + scale(education) + scale(sex_ratio) + scale(adult_ratio) + breastfeeding + scale(n_hunters) + month + collectors + (1|hh_ID),na.action = na.exclude,family=Gamma(link="log"),control = glmerControl(optimizer = "bobyqa"))
@@ -471,100 +557,8 @@ plotResiduals(sim_m2)
 library(car)
 vif(m3) # Great! all values <1.1 (we'd worry if >5)
 
+#### PLOTS ####
+source("Code/Fig_2.R")
+source("Code/Fig_3.R")
+source("Code/Fig_4.R")
 
-#### PREFERENCES #####
-d<-read.csv("Data/preference_data.csv")
-#### Prepare data
-# Create a column for wild meat preferred (yes/no)
-d$wildmeat<-ifelse(d$preference=="viande_de_brousse",1,0)
-# Fix issue with preference
-d$preference<-ifelse(d$preference=="viande_domestiques","viande_domestique",d$preference)
-# Create a column for wild meat taxa (rodents; small ungulates; medium ungulates; pigs; primates; carnivores; reptiles; other)
-levels(as.factor(d$especes))
-d$preferred_taxon<-ifelse(startsWith(d$especes,"alauc")|startsWith(d$especes,"ather")|startsWith(d$especes,"rat"),"rodents",
-                          ifelse(startsWith(d$especes,"cephalophe")|startsWith(d$especes,"chevrotain"), "ungulates",
-                                 ifelse(startsWith(d$especes,"potamochere"), "hogs",
-                                        ifelse(startsWith(d$especes,"croco")|startsWith(d$especes,"tortue")|startsWith(d$especes,"python")|startsWith(d$especes,"boa"), "reptiles",
-                                               ifelse(d$especes=="petitpan", "pangolin",
-                                                      ifelse(startsWith(d$especes,"cercop")|d$especes=="singe", "primates",
-                                                             ifelse(d$especes=="oiseaux:lokoku", "bird",
-                                                                    ifelse(d$preference=="viande_de_brousse" & startsWith(d$especes,"tout"),"toutes_especes",d$preference))))))))
-
-##### Descriptive statistics
-## Proportion of people preferring wild meat by
-# sex & age
-t1<-table(d$sexe,d$wildmeat)
-t1
-par(mar=c(5,4,6,2),xpd=TRUE)
-barplot(proportions(t1,margin=2),beside=FALSE,col=c("lightgreen","indianred4"),names.arg = c("other","wildmeat"),las=1,ylab="Proportion",xlab="Preference")
-legend(x=1.7,y=1.28,legend=c("women","men"),fill=c("lightgreen","indianred4"))
-chisq.test(t1)
-# main activity
-t2<-table(d$activite1,d$wildmeat)
-t2
-palette<-c("orange4","orchid3","darkred","navyblue","lightblue3","gold")
-barplot(proportions(t2,margin=2),beside=FALSE,col=palette,names.arg = c("other","wildmeat"),las=1,xlab="Preference",ylab="Proportion")
-legend(x=1.9,y=1.4,legend=c("farmer","other","hunter","trader","fishermen","employee"),fill=palette,cex=0.8)
-chisq.test(t2)
-# education level
-t3<-table(d$etudes,d$wildmeat)
-t3
-palette<-c("darkred","orange2","gold","palegreen3")
-barplot(proportions(t3,margin=2),beside=FALSE,col=palette,names.arg = c("other","wildmeat"),las=1,xlab="Preference",ylab="Proportion")
-legend(x=1.9,y=1.4,legend=c("no education","primary","secondary","university"),fill=palette,cex=0.8)
-chisq.test(t3)
-# village
-t4<-table(d$village,d$wildmeat)
-t4
-palette<-c("orange4","orchid3","darkred","navyblue","lightblue3","gold")
-barplot(proportions(t4,margin=2),beside=FALSE,col=palette,names.arg = c("other","wildmeat"),las=1)
-legend(x=1.9,y=1.4,legend=c("Bekombo","Ipope","Lompole","Mbongo","Mbungusani","Nganda"),fill=palette,cex=0.8)
-chisq.test(t4)
-## Most preferred species (in plots show first 9,10th is other ) 
-preference<-proportions(table(d$preference))
-preference <- preference[order(-preference)]
-par(mar=c(6,5,1,0.5))
-barplot(preference,horiz=FALSE,las=2,col=palette,names.arg = c("wild meat","fish","vegetables","domestic","other","insects"),ylab="Proportion")
-## Proportion of consumed taxa (use column taxa)
-d_sub<-subset(d,d$wildmeat==1)
-especes<-table(d_sub$especes)
-especes<-especes[order(-especes)]
-par(mar=c(3,9,1,0.5))
-barplot(especes[1:10],horiz=TRUE,las=1)
-## Reason for preferring WM by
-# sex & age
-# main activity
-
-# education
-
-# village
-
-
-## Frequency of days without food by
-d_sub2<-subset(d,d$famine=="yes" | d$famine=="no")
-# main activity
-t10<-table(d_sub2$activite1,d_sub2$famine)
-t10
-barplot(proportions(t10,margin=2),beside=FALSE)
-chisq.test(t10)
-boxplot(d_sub2$frequence_mensuelle~d_sub2$activite1,outline=FALSE)
-# education level
-t11<-table(d_sub2$etudes,d_sub2$famine)
-t11
-barplot(proportions(t11,margin=2),beside=FALSE)
-chisq.test(t11)
-boxplot(d_sub2$frequence_mensuelle~d_sub2$etudes,outline=FALSE)
-# village
-t12<-table(d_sub2$village,d_sub2$famine)
-t12
-barplot(proportions(t12,margin=2),beside=FALSE)
-chisq.test(t12)
-boxplot(d_sub2$frequence_mensuelle~d_sub2$etudes,outline=FALSE)
-
-# preference(WM)
-m4<-glm(d$wildmeat ~ scale(d$indice_biens) + scale(d$age) + as.factor(d$sexe) + as.factor(d$etudes) + as.factor(d$village) + as.factor(d$activite1), family = binomial)
-summary(m4)
-# famine
-d_sub2$famine<-ifelse(d_sub2$famine=="yes",1,0)
-m5<-glm(famine~ scale(indice_biens) + scale(age) + as.factor(etudes) + as.factor(village) + as.factor(activite1) + as.factor(wildmeat), data = d_sub2,family = binomial)
-summary(m5)
